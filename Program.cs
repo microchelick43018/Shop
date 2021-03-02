@@ -12,14 +12,13 @@ namespace Shop
             Console.WriteLine("4 - Get money.");
             Console.WriteLine("5 - Exit.");
         }
-
         static void Main(string[] args)
         {
             Player player = new Player("User", 100);
             Seller seller = new Seller();
             bool exit = false;
             int choice;
-            seller.Greetings();
+            seller.SayHello();
             
             while (exit == false)
             {
@@ -100,24 +99,6 @@ namespace Shop
             Name = name;
         }
 
-        public void Pay(int sum)
-        {
-            Rupees -= sum;
-        }
-
-        public void AddToStuff(Product boughtProduct)
-        {
-            foreach (var stuff in _stuff)
-            {
-                if (stuff.Name == boughtProduct.Name)
-                {
-                    stuff.SetItemQuantity(stuff.ItemQuantity + boughtProduct.ItemQuantity);
-                    return;
-                }
-            }
-            _stuff.Add(boughtProduct);
-        }
-
         public void BuyProduct(Seller seller)
         {
             ShowBalance();
@@ -127,7 +108,7 @@ namespace Shop
             Product boughtItem = seller.SellProduct(name, this);
             if (boughtItem != null)
             {
-                AddToStuff(boughtItem);
+                _stuff.Add(boughtItem);
             }
         }
         
@@ -137,6 +118,11 @@ namespace Shop
             int gotRupees = random.Next(5, 10);
             Console.WriteLine($"You have completed the quest! You've got {gotRupees} rupees");
             Rupees += gotRupees;
+        }
+
+        public void Pay(int sum)
+        {
+            Rupees -= sum;
         }
 
         public void ShowStuff()
@@ -156,7 +142,7 @@ namespace Shop
             ShowBalance();
         }
 
-        public void ShowBalance()
+        private void ShowBalance()
         {
             Console.WriteLine($"Balance: {Rupees} rupees");
         }
@@ -164,67 +150,21 @@ namespace Shop
 
     class Seller : Person
     {
-        private List<Product> _productList;
+        private List<Product> _products;
 
         public Seller(string name = "Morshu") : base(name)
         {
-            _productList = new List<Product>();
+            _products = new List<Product>();
             Name = name;
             CreateProductList();
         }
 
-        public void CreateProductList()
-        {
-            Console.WriteLine("Creating a list of seller's products:\n");
-            LampOil lampOil = new LampOil();            
-            Rope rope = new Rope();            
-            Bomb bomb = new Bomb();
-            lampOil.SetParams();
-            rope.SetParams();
-            bomb.SetParams();
-            _productList.Add(lampOil);
-            _productList.Add(rope);
-            _productList.Add(bomb);
-            Console.Clear();
-        }
-
-        public void Greetings()
+        public void SayHello()
         {
             Console.WriteLine("LampOil? Rope? Bombs?");
             Console.WriteLine("You want it?");
             Console.WriteLine("It's all yours, my friend.");
             Console.WriteLine("As long as you have enough rupees.");
-        }
-
-        public Product MakeADeal(int numberOfProduct, int count, Player player)
-        {
-            Console.WriteLine($"{Name}: Deal!");
-            player.Pay(count * _productList[numberOfProduct].Cost);
-            Product itemForSale = _productList[numberOfProduct].Get();
-            itemForSale.SetItemQuantity(count);
-            RemoveProductFromWarehouse(numberOfProduct, count);
-            return itemForSale;
-        }
-
-        public int FindNumberProduct(string name)
-        {
-            for (int i = 0; i < _productList.Count; i++)
-            {
-                if (_productList[i].Name == name)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        public void RemoveProductFromWarehouse(int numberOfProduct, int count)
-        {
-            _productList[numberOfProduct].SetItemQuantity(_productList[numberOfProduct].ItemQuantity - count);
-            if (_productList[numberOfProduct].ItemQuantity == 0)
-            {
-                _productList.RemoveAt(numberOfProduct);
-            }
         }
 
         public void SayToBreakDeal(Player player)
@@ -235,7 +175,7 @@ namespace Shop
 
         public void ShowProductList()
         {
-            foreach (var product in _productList)
+            foreach (var product in _products)
             {
                 product.ShowInfo();
             }
@@ -246,25 +186,15 @@ namespace Shop
             int numberOfProduct = FindNumberProduct(name);
             if (numberOfProduct != -1)
             {
-                Product itemForSale = _productList[numberOfProduct];
-                Console.WriteLine($"{Name}: I've got it! How many you want to buy?");
-                int count = InputChecker.ReadInt();
-                if (itemForSale.ItemQuantity >= count)
+                Product itemForSale = _products[numberOfProduct];
+                if (itemForSale.Cost > player.Rupees)
                 {
-                    if (count * itemForSale.Cost > player.Rupees)
-                    {
-                        SayToBreakDeal(player);
-                        return null;
-                    }
-                    else
-                    {
-                        return MakeADeal(numberOfProduct, count, player);
-                    }
+                    SayToBreakDeal(player);
+                    return null;
                 }
                 else
                 {
-                    Console.WriteLine($"{Name}: Sorry, i don't have {name} enough for you.");
-                    return null;
+                    return MakeADeal(numberOfProduct, player);
                 }
             }
             else
@@ -272,6 +202,41 @@ namespace Shop
                 Console.WriteLine($"{Name}: Sorry, i can't find {name}!");
                 return null;
             }
+        }
+
+        private void CreateProductList()
+        {
+            Console.WriteLine("Creating a list of seller's products:\n");
+            LampOil lampOil = new LampOil();
+            Rope rope = new Rope();
+            Bomb bomb = new Bomb();
+            lampOil.SetParams();
+            rope.SetParams();
+            bomb.SetParams();
+            _products.Add(lampOil);
+            _products.Add(rope);
+            _products.Add(bomb);
+            Console.Clear();
+        }
+
+        private Product MakeADeal(int numberOfProduct, Player player)
+        {
+            Console.WriteLine($"{Name}: Deal!");
+            player.Pay(_products[numberOfProduct].Cost);
+            Product itemForSale = _products[numberOfProduct].GetNewObject();
+            return itemForSale;
+        }
+
+        private int FindNumberProduct(string name)
+        {
+            for (int i = 0; i < _products.Count; i++)
+            {
+                if (_products[i].Name == name)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
     }
 
@@ -289,7 +254,7 @@ namespace Shop
             Model = obj.Model;
         }
 
-        public LampOil(int cost, int count, string model) : base(cost, count)
+        public LampOil(int cost, string model) : base(cost)
         {
             Name = "LampOil";
             Model = model;
@@ -308,7 +273,7 @@ namespace Shop
             Model = Console.ReadLine();
         }
 
-        public override Product Get()
+        public override Product GetNewObject()
         {
             return new LampOil(this);
         }
@@ -329,7 +294,7 @@ namespace Shop
             Length = obj.Length;
         }
 
-        public Rope(int cost, int count, int length) : base(cost, count)
+        public Rope(int cost, int length) : base(cost)
         {
             Length = length;
         }
@@ -347,7 +312,7 @@ namespace Shop
             Length = InputChecker.ReadInt();
         }
 
-        public override Product Get()
+        public override Product GetNewObject()
         {
             return new Rope(this);
         }
@@ -368,7 +333,7 @@ namespace Shop
             Power = obj.Power;
         }
 
-        public Bomb(int cost, int count, int power) : base(cost, count)
+        public Bomb(int cost, int power) : base(cost)
         {
             Name = "Bomb";
             Power = power;
@@ -387,7 +352,7 @@ namespace Shop
             Power = InputChecker.ReadInt();
         }
 
-        public override Product Get()
+        public override Product GetNewObject()
         {
             return new Bomb(this);
         }
@@ -397,38 +362,29 @@ namespace Shop
     {
         public string Name { get; protected set; }
         public int Cost { get; protected set; }
-        public int ItemQuantity { get; protected set; }
 
         public Product()
         {
             Cost = 0;
-            ItemQuantity = 0;
         }
 
         public Product(Product obj)
         {
             Name = obj.Name;
             Cost = obj.Cost;
-            ItemQuantity = obj.ItemQuantity;
         }
 
-        public Product(int cost, int count)
+        public Product(int cost)
         {
             Cost = cost;
-            ItemQuantity = count;
-        }
-
-        public void SetItemQuantity(int count)
-        {
-            ItemQuantity = count;
         }
 
         public virtual void ShowInfo()
         {
-            Console.Write($"Product name: {Name}, cost: {Cost}, count: {ItemQuantity}, ");
+            Console.Write($"Product name: {Name}, cost: {Cost}, ");
         }
 
-        public virtual Product Get()
+        public virtual Product GetNewObject()
         {         
             return new Product(this);
         }
@@ -440,8 +396,6 @@ namespace Shop
             Name = Console.ReadLine();
             Console.Write("Enter cost: ");
             Cost = InputChecker.ReadInt();
-            Console.Write("Enter count: ");
-            ItemQuantity = InputChecker.ReadInt();
         }
     }
 }
